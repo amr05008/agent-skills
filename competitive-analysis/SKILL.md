@@ -1,0 +1,117 @@
+---
+name: competitive-analysis
+description: Use when researching a company or product — a full teardown, competitive analysis, diligence read, or a quick "what does this landing page signal" question. Triggers on product teardown, competitive analysis, competitor research, "should we worry about X".
+---
+
+# Competitive Analysis / Product Teardown
+
+Produce an evidence-graded teardown of a company, following the report spec in `references/report-template.md`. That spec is the report contract — header, the two audience contracts, structure, evidence labeling, verdict — read it before researching, not after. Which audience applies is decided here, under Usage.
+
+## Usage
+
+```
+/competitive-analysis <company name or URL> [purpose] [audience: me|team]
+/competitive-analysis <company> <landing-page-url> [purpose] [audience: me|team]   # quick strategic-direction mode
+```
+
+- **Purpose** steers the "so-what" (operator diligence / potential partner / writing about the space). If not given and not obvious from context, default to operator diligence and say so — don't stall.
+- **Audience** is `me` unless the purpose names readers other than the caller — an org or team the report is *for* ("for the growth team at Acme", "to share with my coworkers at Acme") — or the caller writes `audience: team`. Naming an org as context or as the subject is not a trigger: "should I worry about X for my Acme roadmap" is `me`; "writing about Passionfroot" is `me`. `audience: me` written anywhere wins. If the trigger fires but no recipient org is nameable ("share this with my team"; a bare `audience: team`), do **not** fall back to `me` — never hand a report full of someone's private framing to people who have just been told they will receive it. Write `team` with the generic byline, Audience `team (recipient unnamed)`, and say so in the closing note. Never infer the org from the operator profile. Audience changes what the report *is* (the template's audience contract), not what gets researched. Record it in the header.
+- **Arg disambiguation:** a URL argument to a *specific page* (path beyond the root domain) selects strategic-direction mode **only when that page is the subject of the run**. A page URL belonging to a comparison target, the recipient org, or a competitor is context, not the subject, and leaves the run in full-teardown mode — "teardown of A, and how it compares to <url on B>" is a full teardown of A. So is a page on the subject's *own* site when the ask is for the whole company ("full teardown of A, see their new pricing page <url on A>"): the test is what the run is about, not whose domain the link sits on. A trailing `audience: me|team` token is the audience; whatever remains is the purpose.
+- **Modes:** full teardown (default). If a specific landing/product page is the subject ("what does this new page tell us"), run the lighter **strategic-direction mode**: skip Phases 1–3 entirely (no Clay, no fan-out, no paid social calls), analyze the page + minimal company context via web research, and produce only the template's Strategic Direction section. Output `YYYY-MM-DD-<company-slug>-page-signal.md` for `me` or `...-page-signal-team.md` for `team` (same collision rule and deliverables as teardowns — the `.md` is the artifact); Phase 4 step 4 still applies. Its "Assessment" bullet replaces the four-option verdict.
+
+## Phase 0 — Setup
+
+1. **Read the house config** — `~/.config/competitive-analysis/house.md`, the machine-local file described in `references/house-config.md`. It names this machine's output directory, byline, available paid sources, artifact-publish setting, and any incumbent context. It is never committed anywhere, so a machine without one is normal: absent, every default below applies and the run proceeds. Nothing in it is optional to read — it is what makes a run on this machine correct rather than generic.
+2. Resolve company name + domain (WebFetch the URL if only a URL given).
+3. Resolve purpose and audience (see Usage); both go in the header the template requires.
+4. **Incumbent context, if configured.** If the config sets `incumbent_context` and the run names that incumbent as a comparison — "how does X stack up against <incumbent>" — read the source it points at before research starts. What it tells you is labeled `INTERNAL` and governed by the `INTERNAL` handling rules in Phase 2. This is the difference between a comparison drawn from a competitor's marketing site and one drawn from what the incumbent actually intends; without it, an incumbent comparison is a public-internet guess and the report should say so in its caveats.
+5. Output: `<output_dir>/YYYY-MM-DD-<company-slug>-teardown.md` for `me`, `...-teardown-team.md` for `team`, where `<output_dir>` comes from the house config and falls back to the harness's working dir. A new run never overwrites an existing file — append `-v2`, then `-v3`, … before the extension; the unsuffixed file is v1. An edit to an existing report is not a new run: it changes that file in place (see Phase 4).
+6. Read `references/report-template.md` in full.
+
+## Phase 1 — Structured enrichment (if Clay is available)
+
+If Clay MCP tools are loadable in this harness: fire `find-and-enrich-company` (every data point the tool schema enumerates) and `find-and-enrich-contacts-at-company` (founders/execs + work-history summaries) immediately — enrichments run async; poll with `get-task` once before synthesis, and if some enrichments are still running at write time, ship with a caveat rather than waiting. Job-listing text and Recent News from Clay often contain the single best traction claims; read them, don't just tabulate.
+
+If Clay is not available in this harness: skip, note "structured enrichment unavailable in this harness" in the report's caveats, and cover the same ground via web research + the Monid fallbacks below.
+
+## Phase 2 — Research (the four required methods are not optional)
+
+The report spec lists four required methods: Wayback history reconstruction, job-listing content mining, contradiction reconciliation, absence-as-evidence. These produce most of the alpha — a teardown missing them is the failure mode this skill exists to prevent. Required means attempted and accounted for, not achieved at any cost: when a method's source is unreachable, the method is discharged by recording the gap (third fan-out rule below). "Not optional" is never licence to keep hammering a blocked source.
+
+**If the harness supports parallel subagents and can enumerate the in-flight ones** (both are required — an unenumerable fan-out cannot be bounded; see the count check below), fan out four researchers, each with citation discipline (direct URL + evidence date per claim; VERIFIED / COMPANY-CLAIMED / ESTIMATE labels; never invent figures) **and all four fan-out rules below, copied into the brief**:
+1. Product, pricing, positioning history (owns Wayback reconstruction)
+2. Company facts, funding, team, hiring, news timeline (owns registries + job-listing mining)
+3. Competitive landscape + market (must identify the *real* competitive set — incl. "do nothing/DIY", platform-native tooling, agencies)
+4. Sentiment, reviews, traction, GTM evidence (owns review platforms and free web sources; explicitly reports absence of coverage). Paid and metered social — Reddit and LinkedIn via a gateway, and any configured social reader's Twitter/YouTube reads — is Phase 3 and stays with you; this researcher does not run it, and asks in its return if it wants a call made.
+
+Otherwise run the same four slices sequentially, tighter scope each.
+
+**Fan-out rules — carry all four into every researcher brief:**
+
+- **One level deep. Researchers do not spawn subagents of their own.** Four briefs means four agents, not four trees. Observed 2026-09-03: four researchers became nineteen agents in six minutes with zero returns, and stopping the four parents did **not** cascade — every orphan had to be killed by id, and orphans kept spawning after their parents died.
+- **No paid-source calls in a subagent — a flat prohibition, not a budget to share.** Every billable or metered path (Monid, and any configured social reader's LinkedIn, Twitter and YouTube reads, which spend vendor credit and API quota) is Phase 3 and belongs to the orchestrator alone. Not because a subagent is unable to look up a balance — it has a shell and could run `monid runs list` — but because a ceiling only holds where one actor accounts for the whole run's spend, and four agents each honoring "$1.00" is a $4.00 run. A researcher that needs a paid source names it in its return and you make the call. State the prohibition in the brief.
+- **A blocked source is a finding, not a puzzle.** If a required method's source is unreachable, record the coverage gap, name what was unavailable, and move on. Never delegate around a blocked resource: that is what produced the runaway above — `web.archive.org` was unreachable, and the Wayback researcher kept spawning helpers to route around it instead of reporting the gap.
+- **`INTERNAL` context never enters a researcher brief.** If Phase 0 read an incumbent context source, that material stays with you. It shapes *which* questions you send out; it is never text you send. This is the same principle as the paid-call rule directly above, for the same reason — a constraint only holds where one actor accounts for the whole run — and here the stake is disclosure rather than money. A researcher that needs to know what the incumbent is planning does not need to know it: give it the public question instead.
+
+**Handling `INTERNAL` context (whenever Phase 0 read one):**
+
+- **Queries are built from public terms only.** Every research path — web search, Clay, a social reader, a paid gateway — transmits its query to someone else's logs. A query assembled out of roadmap language ("does anyone else do <unreleased feature>") publishes that language to a vendor. Internal context tells you what to look for; the words you send are the ones a stranger could have written.
+- **`INTERNAL` claims carry the label**, alongside VERIFIED / COMPANY-CLAIMED / ESTIMATE. The label is greppable on purpose: Phase 4 checks for it before publishing.
+- **`INTERNAL` material may appear in a report body only on the machine whose config named the context source, and only when the audience is the org that owns it.** A `team` report to that org, written where the context lives, is its intended use. Anything else — a `me` report, a different machine, a different audience — carries the conclusions the context led you to, never the context itself.
+
+**Count the agents while the research runs, not while you dispatch it.** The cascade grows during the wait — four to nineteen in six minutes — so a check taken at dispatch sees nothing wrong. Poll at least twice before synthesis (Claude Code: `ListAgents`; elsewhere: whatever lists in-flight agents). Count only the agents you spawned for this run — you are not one of them. More agents than briefs means stop the extras **by id** (Claude Code: `TaskStop`), because stopping a parent does not cascade and orphans keep spawning after it dies. If the harness cannot enumerate in-flight agents, you cannot enforce this rule: run the four slices sequentially instead and say so in the run note.
+
+## Phase 3 — Social/sentiment tooling
+
+Social and review coverage is where teardowns most often go thin, and it is the phase that spends money. Everything here belongs to the orchestrator (Phase 2, second fan-out rule). What follows describes *capabilities*, not a fixed toolchain: the house config's `paid_sources` and `social_reader` say what this machine actually has. A capability the machine lacks is a coverage gap you state in the report — never a reason to hand-build authenticated `curl` calls, and never a reason to sign up for an account or generate a key yourself.
+
+**X/Twitter, LinkedIn, YouTube — via `social_reader`, if the house config names one.** Some machines have a CLI or MCP that fronts these platforms with its own auth and cost accounting; the config names it and its own documentation carries its verbs and rates. Load that documentation before the first call. What this skill requires of any such reader, whatever it is:
+
+- **Inspect the cost before the call**, not after. Free, quota-metered, and billed reads all exist behind similar-looking commands.
+- **Never retry a failed paid call.** It may already have been billed. An error reply is a coverage gap to report, not a puzzle to solve — the same rule as a blocked source in Phase 2.
+- **Record what each call cost** and carry the total to the closing note (Phase 4, step 3).
+- **Bound the investigation.** A default ceiling of **$1.00** across all paid social for one run, unless the caller says otherwise.
+
+With no `social_reader` configured, say so in the caveats: "X/Twitter, LinkedIn and YouTube not searchable from this environment." A stated coverage gap beats a silent omission, and beats an improvised scraper by a wider margin still.
+
+**Reddit and other gaps — Monid.** A pay-per-call gateway that fronts hundreds of providers, which makes it the practical answer to the coverage hole Reddit usually leaves. Works on any harness; no MCP needed.
+
+```
+monid discover -q "reddit posts search"
+monid inspect -p <provider> -e <endpoint>        # ALWAYS inspect first — shows price per call
+monid run -p <provider> -e <endpoint> -i '{...}' # keep result caps small (~25 items); it's pay-per-call
+monid runs get -r <run-id> -w
+```
+
+Setup once: `npm install -g @monid-ai/cli@<pinned version>`, then `monid keys add --label main --key "$MONID_API_KEY"` and `monid keys activate --label main`. The key comes from `$MONID_API_KEY` in the host's shell env; if it is not set on this host, Monid is unavailable — say so and move on. No CLI? Raw HTTP works: `POST https://api.monid.ai/v1/discover|inspect|run` with `Authorization: Bearer $MONID_API_KEY`. House rules and the vendor's own documentation: `references/monid-house-rules.md`.
+
+**Never use Monid's `sfs` file bridge on a machine that holds an incumbent context source.** `sfs` uploads local file bytes to a third party. On a machine where Phase 0 read internal material, that is a prohibition rather than a caution.
+
+**Work Slack, if the house config names `slack_channels`.** Internal chatter is a real competitive signal — someone has usually already noticed the company you are researching. Read only the channels the config names, and only public ones. What you find is `INTERNAL` under the Phase 2 rules: it informs the verdict, and it is quoted into a report only under the conditions those rules set. Never widen the search to channels the config does not name, and never read direct messages.
+
+**Cost guard:** paid calls spend real credit. Inspect before running, cap items, and stop after ~$1 of calls across the whole run unless told otherwise.
+
+## Phase 4 — Synthesize and deliver
+
+1. Write the report per `references/report-template.md` — header, audience contract, structure, evidence labels, verdict definitions, and length band all come from there. Write the header first; it is the checklist. Its Verdict and Page rows read `pending` until known and are filled last. No YAML frontmatter: the artifact viewer renders a leading `---` block as a heading made of the keys (verified 2026-09-02).
+2. **The report `.md` is the only artifact of the run.** Deliverables:
+   - The markdown file in `output_dir` (canonical copy).
+   - **Claude Code, when the house config sets `artifact_publish: on` (the default when no config exists):** publish that same `.md` file, unchanged, with the Artifact tool — this skill explicitly instructs a Markdown publish; the viewer renders it as a styled page. If the harness asks you to load `artifact-design` first, load it, then publish the `.md` as-is: no restyling, no HTML conversion. The tab title is the filename slug; the H1 is the title readers see. Description: "<Company> teardown, <run date>, for <byline | org>" — no verdict in it. Favicon 🔍. Do not write an HTML file and do not author an HTML page: a second rendering drifts from the report (the 2026-09-01 run shipped an HTML whose text no longer matched its markdown). After the first publish, put the URL in the header's Page row and republish — same URL; omit the favicon — so the published copy carries its own link. **Within the session that first published it, the same file path is enough. In any later session it is not: pass the Page row's URL as the Artifact tool's `url` and `action: "read"` it before publishing, then build the update on what comes back.** A bare file-path publish in a later session does not update the artifact — it silently creates a second one at a new URL and strands the link already shared. If the publish fails or the tool is unavailable, the Page row reads `publish failed (<reason>)` and the run reports that instead of the sharing note; for `team`, add that a later Claude Code session can publish the file by being given its path.
+   - **`artifact_publish: off`:** no artifact. The Page row reads `none (publishing off)` and `output_dir` holds the only copy. Set it off wherever the environment's sharing model cannot be stated accurately in `sharing_note` — an unshareable file beats a link you cannot characterize.
+   - **`INTERNAL` check (every harness, before any publish):** `grep -n INTERNAL <file>`. A hit is fine only when this machine's config named the context source *and* the audience is the org that owns it (Phase 2). A hit on a machine with no `incumbent_context` configured is a stop, not a warning — it means internal material reached a machine with no business holding it; find out how before doing anything else.
+   - **Team file check (every harness):** before finishing a `team` file, and again before any publish, run `sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}//g' <file> | grep -nE '@|linkedin\.com/in/|[0-9][0-9 ().-]{8,}[0-9]'`. Strip the ISO date *tokens*; never filter out the lines carrying them — this spec dates every material claim, so a line-level date filter blinds the check on exactly the lines enrichment output lands in. A hit is a stop only if it identifies a person — an email address, a personal social handle (`@name`, or a `linkedin.com/in/` profile URL), a phone number, or a reference to the operator profile; a company URL containing `@` is fine. Fix, then finish. Also confirm no quotation from a LinkedIn or Clay source runs past one sentence.
+   - **Harnesses without an Artifact tool:** no artifact; the Page row reads `none (<harness>)`. Don't fake one.
+   - **Corrections vs reruns:** a correction edits the existing file in place and, in Claude Code, republishes it to the URL in its Page row (via `url` + `read` when this is a later session — see above), so a link already shared stays valid — every edit republishes, or the link serves stale text. If the Page row holds a URL, never publish that file by path alone; if it reads `pending`, `none (<harness>)`, or `publish failed`, there is no artifact to update and a fresh publish is correct. A rerun is a new run: new `-vN` file, new artifact.
+3. End the run with a note, never with the report body. Its contents:
+   - **Claude Code, artifact published:** the artifact URL, plus the house config's `sharing_note` **verbatim** — it states this environment's actual sharing model, which differs enormously between plans and is the one thing about the artifact you must not guess at. A personal plan may offer only an unlisted public link; a managed workspace may default to private, offer org-scoped sharing, and block public links entirely by policy. Never describe sharing from memory or by analogy to another machine: quote the note, or say the note is missing and that sharing should be checked in the browser before the link is passed on. Sharing is a browser action the skill cannot perform. For `team`, that link is the share URL; nothing else needs exporting.
+   - **No artifact (publishing off, a harness without the tool, or a failed publish):** the file path, and which of those three reasons applies — "no link" and "the publish failed" call for different follow-up. For `team`, add what a shareable copy would take: on a harness with an Artifact tool and `artifact_publish: on`, publishing this file from there; where publishing is off by config, whatever sharing `output_dir` itself supports.
+   - All cases: total paid-source spend — here, not in the report body. Reconcile before quoting it: `monid runs list` shows every run billed to the workspace, and a run in that list you did not make yourself means a subagent spent money despite the Phase 2 prohibition. Report that explicitly; your own calls are not the run's total. This check only works if this machine's key bills a workspace it does not share with another machine.
+4. If `output_dir` is inside a git repo, commit per that repo's standing rules. **Push only where the repo is yours alone.** On a shared repo — anything with other contributors, code owners, or CI — commit and stop there, and say in the closing note that the push is the caller's to make. A commit is local and reversible; a push to a shared repo is externally visible, can trigger review requests and pipelines, and is not a side effect a research run should have on its own.
+
+## Quality rules (summary — full versions in the template)
+
+- Every material claim: direct link + evidence date + one of VERIFIED / COMPANY-CLAIMED / ESTIMATE, or INTERNAL where an incumbent context source was configured. Press coverage of a fundraise is COMPANY-CLAIMED, not verified.
+- Never fabricate figures; triangulate ranges with the method shown.
+- Contradictions between sources (including the company's own pages) are findings.
+- Lead with conclusions. Full teardowns end with the four-option verdict, defended by the few variables that matter most; strategic-direction mode ends with its Assessment.
+- `audience: team` reports follow the template's team contract: written to the org, no private framing from the operator profile, people by public role with no contact data, paid sources summarized not reproduced.
