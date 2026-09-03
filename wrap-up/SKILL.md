@@ -149,7 +149,7 @@ Claude Code reads this store natively; under Pi you read and write the same file
 - a lesson that now has a **hook or skill** home (e.g. it was folded into a skill this session) — leave a pointer to the new home
 - a tool assessment whose verdict is in
 
-Retire per the local format: set `tier: archive` on a tiered setup; on standard auto-memory, delete the file (or fold anything still useful into a related memory) and remove its `MEMORY.md` line.
+Retire per the local format: set `tier: archive` on a tiered setup; on standard auto-memory, remove its `MEMORY.md` line and either delete the file, fold anything still useful into a related memory, or move it to an `archive/` subfolder the index doesn't list — prefer the move when the store isn't under version control, since a deleted memory there is gone for good.
 
 **Present promotions + demotions as one numbered list** (type, one-liner; include the proposed tier on tiered setups):
 
