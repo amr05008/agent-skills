@@ -40,7 +40,7 @@ End-of-session closeout. Does the expensive semantic work that `/ship` is delibe
 | Targeted (diff-driven) doc staleness | ✓ | — |
 | PR creation (feature branches) | ✓ | delegates to `/ship` |
 | **Holistic doc review** | — | ✓ |
-| **Session log + index update** | — | ✓ |
+| **Session log + index update** | — | ✓ *(only if the repo git-tracks `.claude/sessions/`)* |
 | **Promote durable learnings to memory** | — | ✓ |
 | **Dirty-start detection** | — | ✓ |
 
@@ -87,6 +87,48 @@ For each stale doc: show what's outdated, propose specific edits, apply after co
 
 Full conventions (directory structure, format, multi-day sessions) are in `references/session-management.md`; the essentials below stand on their own.
 
+**Check A — is this repo opted in?** This runs before every other check in this step:
+
+```sh
+( if ! root=$(git rev-parse --show-toplevel 2>/dev/null); then
+    echo "GIT-ERROR: not inside a git work tree"
+  elif ! logs=$(git ls-files ':/.claude/sessions/' 2>/dev/null); then
+    echo "GIT-ERROR: tracking query failed"
+  elif [ -z "$logs" ]; then
+    echo "SKIP: repo does not track .claude/sessions/"
+  elif [ ! -d "$root/.claude/sessions" ]; then
+    echo "STOP: tracked, but .claude/sessions/ is absent from this checkout"
+  else
+    echo "OPTED-IN"
+  fi )
+```
+
+| Result | What it means | Do |
+|---|---|---|
+| `OPTED-IN` | The repo keeps session logs and the directory is here | Continue — Check B below still has to pass before you write |
+| `SKIP` | The repo opted out (or never opted in) | Skip the log entirely — write nothing, create nothing. Report `skipped — repo doesn't track .claude/sessions/` in the Step 6 summary |
+| `STOP` | Logs are tracked but the directory isn't in this checkout (sparse checkout, or an unstaged deletion) | Skip the log and say which of the two it was. **Don't create the directory** — tracking is the opt-in authority, but the directory existing is a separate prerequisite for writing |
+| `GIT-ERROR` | The check itself failed | **Not an opt-out.** Say the check failed and why; don't silently skip as though the repo opted out |
+
+A repo opts in by git-adding a single session log; the test then turns itself on with no config to set.
+
+Check A proves the repo *wants* logs. It does **not** prove the specific file you're about to write can be committed — that's Check B, after you've chosen the filename.
+
+Four details are load-bearing, so don't "simplify" them away:
+
+- **`:/` anchors the pathspec to the repo root.** A bare `.claude/sessions/` is resolved relative to the current directory, so it reports "untracked" from any subdirectory — silently disabling logging in repos that do keep them.
+- **Each git command's exit status is checked, not just its output.** `git ls-files ... | head -1` returns the status of `head`, so a git failure (exit 128 on a corrupt index, or outside a repo) yields empty output and success — indistinguishable from a genuine opt-out, and it fails toward dropping a log someone wanted.
+- **Tracking and ignoring are independent.** Git does not un-track files when a `.gitignore` pattern is added later, so a repo can have tracked logs *and* ignore new ones. Check A passing is not evidence that a new file is committable.
+- **The block is wrapped in `( … )`.** It assigns `root` and `logs`; a subshell keeps those out of the caller's shell.
+
+**Why this is gated.** Where `.claude/` is gitignored, a session log is untracked, unsynced, unbacked-up, and never loaded into context — pure write-cost for no read-benefit. And the durable material has better homes than a fourth copy of it:
+
+- cross-session facts and preferences → **memory** (Step 4 — and it's the expensive home, since memory loads *every* session, which is why Step 4 treats it as the last resort)
+- decisions about a thing → **next to the thing**, in that project's `README.md` or `docs/`
+- why-this-change → the **commit body**
+
+A session log nobody opens is a fourth copy that can only go stale. Where the repo does track them, they're load-bearing — some projects cite a specific log as the canonical recipe for a recurring task — so the tracking test keeps the habit alive exactly where it's earning its keep.
+
 **Create a session file for:**
 - New features or pages
 - Non-trivial bug fixes (>1 file or non-obvious root cause)
@@ -102,11 +144,36 @@ Full conventions (directory structure, format, multi-day sessions) are in `refer
 - Sessions where all work is already well-described by commit messages
 
 If creating a session file:
-1. Ensure `.claude/sessions/` exists (create if not). The path is the same under every harness: it is the repo's convention, not Claude Code's.
+1. Use the repo's existing `.claude/sessions/` as the destination — Check A confirmed it's tracked and present — but **don't write yet**; Check B below still has to pass. **Never create the directory**: an untracked `.claude/sessions/` is how a silent pile of unread logs starts. The path is the same under every harness: it is the repo's convention, not Claude Code's.
 2. Filename: `YYYY-MM-DD-verb-noun.md` (verbs: `add-`, `fix-`, `refactor-`, `investigate-`)
-3. Use template at `references/session-template.md`
-4. Keep it **lean** — since auto-memory captures durable facts, the log only needs: summary, file list, commit SHAs, and any decisions that are specific to this session (not generalizable)
-5. Update `.claude/sessions/index.md` (create if missing) with a one-line entry
+3. **Check B — can these exact paths be committed?** Run it on the filename you just chose, plus `index.md` whenever you'll create *or* update it (step 6). Check the real paths, never a stand-in: ignore patterns can single out a date prefix, an extension, or `index.md` itself, so a placeholder name proves nothing about the file you're actually writing.
+
+   ```sh
+   ( root=$(git rev-parse --show-toplevel 2>/dev/null) \
+       || { echo "GIT-ERROR: not a work tree"; exit 0; }
+     # Repo-relative paths, .claude/sessions/ prefix included. Replace these
+     # with the real filename you chose; add index.md whenever you'll touch it.
+     set -- ".claude/sessions/2026-09-11-add-thing.md" ".claude/sessions/index.md"
+     [ "$#" -gt 0 ] || { echo "GIT-ERROR: no target paths given"; exit 0; }
+     for f in "$@"; do
+       if git check-ignore -q "$root/$f" 2>/dev/null; then rc=0; else rc=$?; fi
+       case $rc in
+         0) echo "STOP: $f is gitignored — it could not be committed" ;;
+         1) echo "OK: $f" ;;
+         *) echo "GIT-ERROR: ignore check failed for $f (status $rc)" ;;
+       esac
+     done )
+   ```
+
+   Substitute your real paths into the `set --` line. They must be **repo-relative and include the `.claude/sessions/` prefix** — a bare filename resolves to the repo root and silently answers about the wrong file.
+
+   **Passing is positive, and silence is not a pass.** Every path you're about to write must come back on its own `OK:` line naming that exact file. No output at all is an incomplete or failed check — never permission to write. Any `STOP` → don't write that file; report `skipped — <path> is gitignored; it couldn't be committed` and leave it to the user; **never `git add -f`** around the ignore. Any `GIT-ERROR` → say the check failed; don't write on an unanswered question.
+
+   The status match is exact — `check-ignore` exits 0 ignored, 1 not ignored, 128 failed — and it's captured via `if`/`else` rather than a bare command so that a caller running under `set -e` isn't killed by the ordinary "not ignored" 1 before `case` ever runs.
+
+4. Use template at `references/session-template.md`
+5. Keep it **lean** — since auto-memory captures durable facts, the log only needs: summary, file list, commit SHAs, and any decisions that are specific to this session (not generalizable)
+6. Update `.claude/sessions/index.md` (create if missing — it's inside an already-opted-in directory) with a one-line entry. It must have come back `OK` from Check B, whether you're creating it or updating an existing one
 
 ### 4. Curate memory — promote AND demote (batched)
 
@@ -176,7 +243,12 @@ Compact closeout:
 ```
 Session scope:  <N commits, M files, ±LOC>
 Docs updated:   <list or "none">
-Session log:    .claude/sessions/<file>  (or "skipped — small session")
+Session log:    .claude/sessions/<file>
+                (or "skipped — small session"
+                 / "skipped — repo doesn't track .claude/sessions/"
+                 / "skipped — <path> is gitignored; it couldn't be committed"
+                 / "skipped — .claude/sessions/ absent from this checkout"
+                 / "skipped — tracking check failed: <reason>")
 Memory added:   <N entries>  (or "none")
 Shipped:        <sha list from /ship, or "nothing to commit">
 ```
@@ -196,10 +268,18 @@ Running a full README/CLAUDE.md re-read and a session log after every commit is 
 | Run for every small session | Skill is opt-in; small sessions don't need it |
 | Ask per-item for memory candidates | Present all at once; user picks with numbers |
 | Silently bundle pre-session uncommitted work | Run the dirty-start check in Step 1 first |
+| Write a session log into a gitignored `.claude/` | Run Step 3's gate first and honor `SKIP`/`STOP`; say so in the summary |
+| Read a failed git command as "the repo opted out" | `GIT-ERROR` is not `SKIP` — report the failure instead of silently dropping the log |
+| Treat tracked old logs as proof a new log is trackable | A later `.gitignore` doesn't un-track old files — Check B tests the real path |
+| Ignore-check a placeholder name instead of the real one | Patterns can target a date prefix or `index.md`; Check B must run on the paths you'll actually write |
+| Read Check B's silence as a pass | No output is an incomplete or failed check, never permission to write — require an explicit `OK:` line per target |
+| Pass Check B a bare filename | Paths must be repo-relative including `.claude/sessions/`, or it answers about the wrong file |
+| Read `check-ignore`'s nonzero exit as "not ignored" | 1 is not-ignored, 128 is failure — match the exact status or you write on an error |
+| Create `.claude/sessions/` so there's somewhere to put the log | Never create it — that's what starts an untracked, unread pile. The repo opts in by git-adding a log |
 | Guess the memory store from a path you noticed somewhere | Compute it from this repo's root per Step 4; if it doesn't exist, say so and skip |
 | Treat `/ship` as a command the harness must provide | Load `ship/SKILL.md` and follow it; the slash forms are just how users spell it |
 
 ## Notes
 
-- **Portability:** session logs live in the repo (git-tracked) and sync via git. Auto-memory is machine-local unless the setup has its own sync mechanism (e.g. a `sync-memory.sh` between writer machines) — don't assume a memory written here is visible elsewhere; check the memory directory's own conventions. Across harnesses on one machine it is shared: Pi and Claude Code resolve the same store per Step 4.
+- **Portability:** session logs sync via git *only in repos that actually track `.claude/sessions/`* — plenty of repos gitignore `.claude/` wholesale, and there a log would be local-only, unsynced and unbacked-up. That's what Step 3's tracking test checks before writing one; don't assume a log written on one machine is visible on another until you've confirmed the repo tracks them. Auto-memory is machine-local unless the setup has its own sync mechanism (e.g. a `sync-memory.sh` between writer machines) — don't assume a memory written here is visible elsewhere; check the memory directory's own conventions. Across harnesses on one machine it is shared: Pi and Claude Code resolve the same store per Step 4.
 - Pairs with `/grill` (adversarial review of a change, run before `/ship`) and `/ship` (per-chunk commit + push). Wrap-up assumes shipped work was already verified and reviewed; it closes out the session, it doesn't re-audit the code.

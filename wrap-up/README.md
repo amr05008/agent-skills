@@ -18,7 +18,7 @@ Run it once at end of session:
 
 1. Scopes the session's cumulative work (with a dirty-start check so uncommitted WIP from *before* this session doesn't get silently bundled in)
 2. Reads README / CLAUDE.md / ROADMAP holistically and proposes updates
-3. Writes a lean session log to `.claude/sessions/` — git-tracked, portable across your machines
+3. Writes a lean session log to `.claude/sessions/` — but only where the repo already git-tracks that directory *and* the new file could actually be committed, so it never starts an untracked pile
 4. Extracts durable learnings from the conversation and offers them as a batched pick-list to promote to Claude's auto-memory
 5. Commits any resulting changes
 
@@ -46,7 +46,7 @@ claude: [/wrap-up]
 
 They serve different purposes. `/wrap-up` actively splits new learnings between them so neither ends up bloated:
 
-- **Session log** — per-session narrative. Git-tracked, human-readable, syncs across your machines via git, visible to teammates, portable between personal and work laptops.
+- **Session log** — per-session narrative. Human-readable, visible to teammates, and portable between your laptops *via git* — which is exactly why wrap-up writes one only where the repo tracks `.claude/sessions/`. Where the log couldn't be committed — `.claude/` gitignored, or a pattern covering the new file — none of those benefits exist, so it skips and says why. A repo opts in by git-adding one log.
 - **Auto-memory** — durable preferences and project facts that should shape **future** sessions. Machine-local (doesn't sync between laptops). It's Claude Code's store, but `/wrap-up` writes to it from Pi too, so a learning captured under Pi shapes the next Claude Code session on that machine. If a project has no memory store yet, wrap-up says so and skips rather than creating one.
 
 Rule of thumb: if it needs to survive the move between machines or be visible to a teammate, it's a log entry. If it's "something Claude should remember so I don't re-explain it," it's a memory.
@@ -80,7 +80,7 @@ Then start a new session (skills load at session start) and run `/wrap-up` in Cl
 
 Skill directories don't auto-sync between machines. Keep this skill in a git repo you pull on each machine and run `scripts/install-skill-links.sh --yes` there; it only creates symlinks, so it's safe to re-run.
 
-Session logs live in each project repo and sync via git. Auto-memory is machine-local — if something needs to survive the move between laptops, put it in a session log, not memory.
+Session logs live in each project repo and sync via git — in the repos that track them. Where the log couldn't be committed, wrap-up skips it and says so, so don't count on one being there. Auto-memory is machine-local — if something needs to survive the move between laptops, put it in a session log in a repo that tracks them, or in the project's own docs.
 
 ## Customization
 
@@ -88,7 +88,7 @@ Natural-language overrides — no flags needed:
 
 | You say | Claude does |
 |---|---|
-| "wrap up but skip the session log" | Skips Step 3 |
+| "wrap up but skip the session log" | Skips Step 3 (it also self-skips in repos that don't track `.claude/sessions/`) |
 | "don't save any memories" | Skips Step 4 |
 | "wrap up fast" | Skips the holistic doc read — does session log + memory only |
 | "just the doc review" | Only runs Step 2 |
