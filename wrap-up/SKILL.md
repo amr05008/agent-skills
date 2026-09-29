@@ -215,6 +215,9 @@ Claude Code reads this store natively; under Pi you read and write the same file
 - a `project` whose work finished, shipped, or was abandoned
 - a lesson that now has a **hook or skill** home (e.g. it was folded into a skill this session) — leave a pointer to the new home
 - a tool assessment whose verdict is in
+- anything out of date, or that nobody will look up again
+
+**Retire, don't park.** On a tiered setup, demote to `reference` only what will actually be looked up again. Anything out of date or unlikely to be reused goes straight to `archive`: a cold tier full of stale facts still misleads whoever greps it.
 
 Retire per the local format: set `tier: archive` on a tiered setup; on standard auto-memory, remove its `MEMORY.md` line and either delete the file, fold anything still useful into a related memory, or move it to an `archive/` subfolder the index doesn't list — prefer the move when the store isn't under version control, since a deleted memory there is gone for good.
 
