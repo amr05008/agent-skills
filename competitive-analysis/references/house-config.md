@@ -28,8 +28,9 @@ sharing_note: Personal plan. Artifacts are private until shared; Share
   no account needed, and it cannot be revoked per-person.
 operator_profile: none
 social_reader: none
-paid_sources: monid
+paid_sources: monid, exa
 monid_reference: ~/refs/monid-cli-0.1.7.md
+exa_helper: python3 ~/tools/exa
 ```
 
 ## Fields
@@ -47,6 +48,7 @@ monid_reference: ~/refs/monid-cli-0.1.7.md
 | `operator_profile` | none | Where to find the caller's background, for calibrating a `me` report. Read to calibrate, never cited, never in a `team` report. |
 | `paid_sources` | none | Which billable paths exist here, and against which account. |
 | `monid_reference` | none | A local audited snapshot of Monid's docs to read instead of fetching the live URL. |
+| `exa_helper` | none | The command that fronts Exa on this machine, with its key held outside the repo. Read only when `paid_sources` includes `exa`; drives the Phase 2 discovery pass. Its own docs carry its verbs and rates. |
 
 ## On `sharing_note`
 

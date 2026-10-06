@@ -19,6 +19,8 @@ Treats every claim as needing a provenance label before it can be used:
 5. **Grades every material claim** — direct link, evidence date, and one of VERIFIED / COMPANY-CLAIMED / ESTIMATE. Press coverage of a fundraise is COMPANY-CLAIMED, not verified.
 6. **Ends with a verdict** defended by the few variables that actually decide it, plus a closing note carrying the artifact link, the coverage gaps, and total paid-source spend.
 
+Where the house config names an Exa helper, a bounded **discovery pass** runs before the fan-out — the real competitive set, the news and funding timeline, the pricing and careers URLs — and seeds the researcher briefs. Search hits are leads, never evidence; every claim still rests on a fetched page.
+
 For a single page rather than a whole company ("what does this new pricing page tell us"), it runs a lighter **strategic-direction mode**: no enrichment, no fan-out, no paid calls — just the page, minimal context, and an assessment.
 
 ## A worked example

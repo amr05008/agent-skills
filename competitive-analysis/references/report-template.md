@@ -1,4 +1,4 @@
-# Teardown report spec (v2.4, 2026-09-03)
+# Teardown report spec (v2.5, 2026-10-05)
 
 This is the report contract. Header, audience, structure, evidence labels, and verdict below are requirements, not suggestions. This file is the only copy. To run a teardown on a harness without the skill, generate a portable prompt from it at the time of use — do not create a second copy to keep in sync. A second copy was kept elsewhere until 2026-09-03; it drifted while claiming to be synced, which is why it is gone. A portable prompt must also carry `SKILL.md`'s Phase 2 fan-out rules — one level deep, no paid calls in a subagent, a blocked source is a finding — which live there and not here: a harness driven from this file alone is precisely where an unbounded fan-out runs unwatched.
 
@@ -56,7 +56,7 @@ Allowed values — Audience: `me`, or `team (<org>)`, or `team (<org> — <team>
 
 ## Required research methods
 
-- **Reconstruct history:** Wayback snapshots of homepage + pricing page across the company's life. Date pivots by when hero copy/pricing changed. Removed or hidden pricing is a finding.
+- **Reconstruct history:** Wayback captures of homepage + pricing page across the company's life. Start from the CDX index's change points (`SKILL.md` Phase 2 gives the query), then read the captures on either side of each change: a pivot is dated by the last capture with the old copy and the first with the new. Removed or hidden pricing is a finding.
 - **Mine job listings for content** — companies leak traction claims, org strategy, and comp bands in job-description copy.
 - **Reconcile contradictions** between sources, including the company's own pages. A discrepancy is a finding, not noise.
 - **Treat absence as evidence:** missing reviews, missing marquee customers, sentiment that goes quiet. Say what you looked for and did not find.
@@ -77,7 +77,7 @@ Allowed values — Audience: `me`, or `team (<org>)`, or `team (<org> — <team>
 
 Clear headings, concise prose, tables where useful, source list at the end. Lead with conclusions, not a chronology of research. Target 3,000–5,000 words; depth over padding.
 
-For Wayback-sourced claims, the evidence date is the snapshot date, not the access date.
+For Wayback-sourced claims, the evidence date is the capture timestamp of the page actually served — the one in the fetched `id_` URL, or the `Location` header when Wayback substituted a nearer capture — not the access date and not the timestamp you asked for.
 
 ## Verdict (required for full teardowns; strategic-direction mode ends with its Assessment instead)
 
