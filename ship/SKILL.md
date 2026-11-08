@@ -90,7 +90,7 @@ Detection order (stop at first match that yields commands):
 - Internal metrics, launch numbers, roadmap milestones, revenue figures
 - Verbatim quotes from private or internal sources (strategy docs, product updates, work email, Slack)
 - Employer or customer specifics: internal project codenames, channel names, account names
-- Personal data: home address, DOB, financial detail, family-identifying specifics
+- Personal data: home address, DOB, financial detail, family-identifying specifics, travel plans (routes, dates, airlines, hotels, departure-time habits) and loyalty programs. Session logs and commit messages count too: a log about travel tooling is exactly where real trip details slip in
 
 The diff is not the risk surface — the file is. Sensitive material is usually **pre-existing**: added in an earlier commit and never re-read. Editing a file is the natural moment to audit the whole thing. When something turns up, prefer paraphrase over deletion — the point being illustrated almost always survives, and the specifics are what create the risk. Report findings and let the user decide before committing.
 
