@@ -1,19 +1,18 @@
 # agent-skills
 
-[Agent Skills](https://agentskills.io)-standard skills for [Claude Code](https://claude.com/claude-code) and the `pi` coding agent (the Pi harness). Three cover the loop around a chunk of work: cross-examine the change, commit and push it, close out the session. One covers research: an evidence-graded teardown of a company or product.
+[Agent Skills](https://agentskills.io)-standard skills for [Claude Code](https://claude.com/claude-code) and the `pi` coding agent (the Pi harness). Three skills cover the loop around a chunk of work: cross-examine the change, commit and push it, close out the session.
 
 | Skill | Use it when | Claude Code | Pi |
 |---|---|---|---|
 | [`grill`](grill/) | After writing or changing code, before it ships. Switches the agent from author to opposing counsel: six adversarial passes, a verdict of SHIP or DON'T SHIP. | `/grill` | `/skill:grill` |
 | [`ship`](ship/) | A logical chunk is done. Verifies (tests, lint, typecheck, in parallel), stages safely, drafts the commit message from the diff, pushes, offers a PR on feature branches. | `/ship` | `/skill:ship` |
 | [`wrap-up`](wrap-up/) | Once, at the end of a session. Holistic doc review, a lean session log in `.claude/sessions/`, and a batched pick-list of learnings to promote to auto-memory. | `/wrap-up` | `/skill:wrap-up` |
-| [`competitive-analysis`](competitive-analysis/) | Researching a company or product: a full teardown, a diligence read, or a quick "what does this landing page signal". Four required research methods, every material claim carrying a link, an evidence date, and a VERIFIED / COMPANY-CLAIMED / ESTIMATE label. Outputs one markdown report. | `/competitive-analysis` | `/skill:competitive-analysis` |
 
 Each directory holds `SKILL.md` (what either harness loads), a `README.md` with a worked example and design notes, and `scripts/install-skill-links.sh`.
 
 `grill`, `ship` and `wrap-up` need only `git` and a POSIX shell; `ship` uses `gh` when it is there. No MCP servers, no harness-specific tools, so they behave the same in both harnesses. Each works standalone; together they form `/grill` → `/ship` → `/wrap-up`.
 
-`competitive-analysis` also carries `references/` — the report template, the house-config spec, and gateway house rules. It needs web research, and everything else it degrades by design: structured enrichment, a paid gateway, a social reader, and work Slack are each optional, and a capability the machine lacks becomes a stated coverage gap in the report rather than a failure. Machine-local settings — output directory, byline, available paid sources, artifact publishing — live in `~/.config/competitive-analysis/house.md`, described in [`references/house-config.md`](competitive-analysis/references/house-config.md). That file is never committed anywhere; without one, every default applies and a run still works.
+**Retired: `competitive-analysis`** (November 2026). The company-teardown skill that used to live here is now the [Competitive Analysis](https://aaronroy.com/competitive-analysis/) plugin for ChatGPT and Claude ([source](https://github.com/amr05008/competitive-analysis)). If you linked it with its install script, see [`competitive-analysis/`](competitive-analysis/) for the two links to remove.
 
 ## Install
 
@@ -21,7 +20,7 @@ One checkout serves both harnesses. Claude Code discovers skills in `~/.claude/s
 
 ```bash
 git clone https://github.com/amr05008/agent-skills.git ~/repos/agent-skills
-for s in competitive-analysis grill ship wrap-up; do
+for s in grill ship wrap-up; do
   sh ~/repos/agent-skills/$s/scripts/install-skill-links.sh --yes
 done
 ```
@@ -40,4 +39,4 @@ Nothing to re-link: the symlinks follow the checkout. A new session picks up the
 
 ## About this repository
 
-This is a publish target. The four skill directories are generated from the author's working copy by a publish script and replaced wholesale on every publish, so edits made to them here are lost — this README is the only file the publisher does not touch. Please open an issue for bugs and suggestions rather than a PR against a skill.
+This is a publish target. The three skill directories are generated from the author's working copy by a publish script and replaced wholesale on every publish, so edits made to them here are lost — this README and the retired `competitive-analysis/` note are the only files the publisher does not touch. Please open an issue for bugs and suggestions rather than a PR against a skill.
